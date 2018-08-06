@@ -1,0 +1,8 @@
+AWSTemplateFormatVersion : 2010-09-09
+Description: Creates a Cognito Pool for use in Amazon Sumerian Speech Component Tutorial
+Resources:
+    SumerianMessageQueueFIFO: 
+      Type: "AWS::SQS::Queue"
+      Properties: 
+        QueueName: "SumerianMessageQueue.fifo"
+        FifoQueue: true

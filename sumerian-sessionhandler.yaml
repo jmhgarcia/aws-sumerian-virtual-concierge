@@ -1,0 +1,464 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+
+Resources:
+  ExecutionRole: 
+      Type: "AWS::IAM::Role"
+      Properties: 
+        AssumeRolePolicyDocument: 
+          Statement: 
+            - 
+              Effect: "Allow"
+              Principal: 
+                Service: 
+                  - "apigateway.amazonaws.com"
+                  - "lambda.amazonaws.com"
+                  - 
+                    Fn::Join:
+                      - "" 
+                      - - "states."
+                        - 
+                          Ref: "AWS::Region"
+                        - ".amazonaws.com"
+              Action: 
+                - "sts:AssumeRole"
+        Path: "/"
+        Policies: 
+          - 
+            PolicyName: "Policies"
+            PolicyDocument: 
+              Statement: 
+                - 
+                  Effect: "Allow"
+                  Action: "*"
+                  Resource: "*"
+                        
+  hostspeechfifo:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: sumerianhostmessager.lambda_handler
+      Runtime: python3.6
+      Description: 'Send Message to Summerian Host'
+      MemorySize: 1536
+      Timeout: 15
+      Role: !GetAtt ExecutionRole.Arn
+      CodeUri: ./sessionhandler-lambda
+      Environment:
+        Variables:
+          QueueUrl: 'https://sqs.us-west-2.amazonaws.com/882607831196/SumerianMessageQueue.fifo'
+          sdkregion: 'us-west-2'
+
+
+  checkface:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: checkfacecaptured.lambda_handler
+      Runtime: python3.6
+      Description: 'Check if face captured or not.'
+      MemorySize: 1536
+      Timeout: 15
+      Role: !GetAtt ExecutionRole.Arn
+      CodeUri: ./sessionhandler-lambda
+      
+  appointmentlookup:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: appointmentlookup.lambda_handler
+      Runtime: python3.6
+      Description: 'Check face detected for Appointment'
+      MemorySize: 1536
+      Timeout: 15
+      Role: !GetAtt ExecutionRole.Arn
+      CodeUri: ./sessionhandler-lambda
+
+  responseapi:
+    Type: 'AWS::Serverless::Api'
+    Properties:
+        Name: SumerianHostAPI
+        StageName: Prod
+        DefinitionBody: 
+          swagger: "2.0"
+          schemes:
+          - "https"
+          paths:
+            /notifyguest:
+              get:
+                consumes:
+                - "application/json"
+                produces:
+                - "application/json"
+                parameters:
+                - name: "rekogid"
+                  in: "query"
+                  required: true
+                  type: "string"
+                - name: "state"
+                  in: "query"
+                  required: true
+                  type: "string"
+                responses: {"200": {"description": "200 response","schema": {"$ref": "#/definitions/Empty"}}}
+                x-amazon-apigateway-request-validator: "Validate query string parameters and headers"
+                x-amazon-apigateway-integration:
+                  credentials: 
+                      'Fn::GetAtt' :
+                        - ExecutionRole
+                        - Arn
+                  uri: 
+                    'Fn::Sub':
+                        - "arn:aws:apigateway:ap-southeast-2:lambda:path//2015-03-31/functions/${lambdafunc}/invocations"
+                        - { lambdafunc: !GetAtt sendsns.Arn }
+                  responses:
+                    default:
+                      statusCode: "200"
+                  requestTemplates:
+                    application/json: "{\"SlackResponse\":{\"RekognitionId\":\"$input.params('rekogid')\",\"HostResponse\":\"$input.params('state')\"}}"
+                  passthroughBehavior: "when_no_templates"
+                  httpMethod: "POST"
+                  type: "aws"
+          definitions:
+            Empty:
+              type: "object"
+              title: "Empty Schema"
+          x-amazon-apigateway-request-validators:
+            Validate query string parameters and headers:
+              validateRequestParameters: true
+              validateRequestBody: false
+
+  triggerslack:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: slackmessager.lambda_handler
+      Runtime: python2.7
+      Description: 'Trigger Slack API to notify guest arrival'
+      MemorySize: 1536
+      Timeout: 15
+      Role: !GetAtt ExecutionRole.Arn
+      CodeUri: ./sessionhandler-lambda
+      Environment:
+        Variables:
+          SlackWebHook: https://hooks.slack.com/services/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
+          RespionseUrl: 
+             'Fn::Sub':
+                  - "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/Prod/notifyguest"
+                  - { Api: !Ref responseapi }
+
+  sessionmanager:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: sessionmanager.lambda_handler
+      Runtime: python3.6
+      Description: 'Manage Virtual Concierge Session'
+      MemorySize: 1536
+      Timeout: 15
+      Role: !GetAtt ExecutionRole.Arn
+      CodeUri: ./sessionhandler-lambda
+      Environment:
+        Variables:
+          session_sfn: 'arn:aws:states:ap-southeast-2:882607831196:stateMachine:receptionstatemachinefifo-Wys8Btafr2q4'
+          session_throttle_milsec: 30000
+
+  sessionmanagerPermission: 
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+        Action: 'lambda:InvokeFunction'
+        FunctionName:
+          'Fn::GetAtt':
+            - sendsns
+            - Arn
+        Principal: apigateway.amazonaws.com
+        SourceArn:
+          'Fn::Sub': 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:*/*/*/*'      
+          
+          
+  sendsns:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: sendsns.lambda_handler
+      Runtime: python3.6
+      Description: 'Send Message to Message Handler'
+      MemorySize: 1536
+      Timeout: 15
+      Role: !GetAtt ExecutionRole.Arn
+      CodeUri: ./sessionhandler-lambda 
+      Events:
+        LambdaMicroservice:
+          Type: Api
+          Properties:
+            Path: /notifyguest
+            Method: get
+            RestApiId: 
+              Ref: responseapi
+  
+  sessiontable:
+    Type: "AWS::DynamoDB::Table"
+    Properties:
+      GlobalSecondaryIndexes:
+        -
+          IndexName: 'AppointmentHost-RekognitionId-Index'
+          KeySchema:
+            -
+              AttributeName: "AppointmentHost"
+              KeyType: "HASH"
+            -
+              AttributeName: "RekognitionId"
+              KeyType: "RANGE"          
+          Projection:
+            ProjectionType: "ALL"
+          ProvisionedThroughput: 
+            ReadCapacityUnits: "1"
+            WriteCapacityUnits: "1"
+
+      AttributeDefinitions:
+        -
+          AttributeName: "AppointmentHost"
+          AttributeType: "S"
+        -
+          AttributeName: "RekognitionId"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "RekognitionId"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: "1"
+        WriteCapacityUnits: "1"
+      TableName: "virtual-concierge-session"
+  
+  checkhostresponse:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: checkhostresponse.lambda_handler
+      Runtime: python3.6
+      Description: 'Check Host Response Status'
+      MemorySize: 1536
+      Timeout: 15
+      Role: !GetAtt ExecutionRole.Arn
+      CodeUri: ./sessionhandler-lambda 
+  
+  receptionstatemachinefifo:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      DefinitionString: 
+                  !Sub  
+                    - |-
+                        {
+                        	"Comment": "Sumerian State Machine",
+                        	"StartAt": "Check_Face_Detected",
+                        	"States": {
+                        		"Check_Face_Detected": {
+                        			"Type": "Task",
+                        			"Resource": "${checkface}",
+                        			"Next": "Condition_Known_Or_Unknown_Visitor",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                        		"Condition_Known_Or_Unknown_Visitor": {
+                        			"Type": "Choice",
+                        			"Choices": [{
+                        					"Variable": "$.FaceDetection.FaceStatus",
+                        					"StringEquals": "screen-face-unknown",
+                        					"Next": "Unknown_Face_Detected"
+                        				},
+                        				{
+                        					"Variable": "$.FaceDetection.FaceStatus",
+                        					"StringEquals": "screen-face-known",
+                        					"Next": "Speech_Greet_Known_Visitor"
+                        				}
+                        			],
+                        			"Default": "Unknown_Face_Detected"
+                        		},
+                        		"Speech_Greet_Known_Visitor": {
+                        			"Type": "Task",
+                        			"Resource": "${hostspeech}",
+                        			"Next": "Appointment_Lookup",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                        		"Appointment_Lookup": {
+                        			"Type": "Task",
+                        			"Resource": "${appointmentlookup}",
+                        			"Next": "Condition_Appointment_Found_Or_NotFound",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                        		"Condition_Appointment_Found_Or_NotFound": {
+                        			"Type": "Choice",
+                        			"Choices": [{
+                        					"Variable": "$.AppointmentDetection.AppointmentFound",
+                        					"StringEquals": "True",
+                        					"Next": "Speech_I_Will_Notify_Host"
+                        				},
+                        				{
+                        					"Variable": "$.AppointmentDetection.AppointmentFound",
+                        					"StringEquals": "False",
+                        					"Next": "Speech_Unauthorised_User"
+                        				}
+                        			],
+                        			"Default": "Speech_Unauthorised_User"
+                        		},
+                        		"Unknown_Face_Detected": {
+                        			"Type": "Task",
+                        			"Resource": "${checkface}",
+                        			"Next": "Speech_Unauthorised_User",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                        		"Speech_Unauthorised_User": {
+                        			"Type": "Task",
+                        			"Resource": "${hostspeech}",
+                        			"Next": "Trigger_Slack_Notification",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                        		"Speech_I_Will_Notify_Host": {
+                        			"Type": "Task",
+                        			"Resource": "${hostspeech}",
+                        			"Next": "Trigger_Slack_Notification",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                        		"Trigger_Slack_Notification": {
+                        			"Type": "Task",
+                        			"Resource": "${triggerslack}",
+                        			"Next": "Check_HostResponse_Status",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                        		"Check_HostResponse_Status": {
+                        			"Type": "Task",
+                        			"Resource": "${checkhostresponse}",
+                        			"Next": "Condition_HostResponse_State",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                        		"Condition_HostResponse_State": {
+                        			"Type": "Choice",
+                        			"Choices": [{
+                        					"Variable": "$.HostResponse.State",
+                        					"StringEquals": "comingout",
+                        					"Next": "Speech_Say_Host_Respond_Status"
+                        				},
+                        				{
+                        					"Variable": "$.HostResponse.State",
+                        					"StringEquals": "comingoutsoon",
+                        					"Next": "Speech_Say_Host_Respond_Status"
+                        				},
+                        				{
+                        					"Variable": "$.HostResponse.State",
+                        					"StringEquals": "hostdetected",
+                        					"Next": "Speech_Say_Guest_Waiting_Time"
+                        				},
+                        				{
+                        					"Variable": "$.HostResponse.State",
+                        					"StringEquals": "remindhost",
+                        					"Next": "Speech_I_Will_Notify_Host"
+                        				},
+                        				{
+                        					"Variable": "$.HostResponse.State",
+                        					"StringEquals": "waiting",
+                        					"Next": "Wait"
+                        				}
+                        			],
+                        			"Default": "Wait"
+                        		},
+                        		"Wait": {
+                              "Type": "Wait",
+                                "Seconds": 5,
+                                "Next": "Check_HostResponse_Status"
+                            },
+                            "Speech_Say_Host_Respond_Status": {
+                        			"Type": "Task",
+                        			"Resource": "${hostspeech}",
+                        			"Next": "Check_HostResponse_Status",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                            "Speech_Say_Guest_Waiting_Time": {
+                        			"Type": "Task",
+                        			"Resource": "${hostspeech}",
+                        			"Next": "Cleanup_Session",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                            "Cleanup_Session": {
+                        			"Type": "Task",
+                        			"Resource": "${deletesession}",
+                        			"Next": "End_StateMachine",
+                        			"Retry": [{
+                        				"ErrorEquals": [
+                        					"States.ALL"
+                        				],
+                        				"IntervalSeconds": 1,
+                        				"MaxAttempts": 3,
+                        				"BackoffRate": 2
+                        			}]
+                        		},
+                        		"End_StateMachine": {
+                              "Type": "Pass",
+                              "End": true
+                            }
+                        	}
+                        }
+                    - { triggerslack: !GetAtt triggerslack.Arn, hostspeech: !GetAtt hostspeechfifo.Arn, checkface: !GetAtt checkface.Arn, appointmentlookup: !GetAtt appointmentlookup.Arn, deletesession: !GetAtt sessionmanager.Arn, checkhostresponse: !GetAtt checkhostresponse.Arn}
+      RoleArn: !GetAtt ExecutionRole.Arn
+      

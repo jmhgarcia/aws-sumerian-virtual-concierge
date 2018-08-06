@@ -1,0 +1,46 @@
+{
+  "Records": [
+    {
+      "EventSource": "aws:sns",
+      "EventVersion": "1.0",
+      "EventSubscriptionArn": "arn:aws:sns:ap-southeast-2:882607831196:sssalim-test-topic:e74edaf7-ee91-4065-86d4-e0c5c08c1a6e",
+      "Sns": {
+        "Type": "Notification",
+        "MessageId": "f8fad8d4-9199-566b-a864-8b1c5ef03ecdxxx",
+        "TopicArn": "arn:aws:sns:ap-southeast-2:882607831196:sssalim-test-topic",
+        "Subject": null,
+        "Message": "{\"DeepLens\":{\"Url\":\"https://s3-ap-southeast-2.amazonaws.com/sssalim-dummy-mug-face/sample_captured_scene.jpg\",\"ThingName\":\"deeplens_zz8BbGbNSVuHCsyqtWOM4Q\",\"Faces\":[{\"Url\":\"https://s3-ap-southeast-2.amazonaws.com/sssalim-dummy-mug-face/julian_bright_mug.jpeg\",\"Confidence\":99.99739837646484,\"RekognitionId\":\"d92188d4-27cf-40c0-a871-2ce92b95cabe\",\"Name\":\"Stephen Salim\"}]}}",
+        "Timestamp": "2018-07-18T05:16:25.137Z",
+        "SignatureVersion": "1",
+        "Signature": "Fe1k2FzKzIaHYoiSfhTzB+YPTJLzso4omZUFNzMfuta/whirS9+sxGrSIUSzdmCcWUIHyOwHy7N4dmxaWHwkBtLzBtL/WRP2YRL+MTfnz4I8gvTNtDQn2qsEJPdr3+YdEJ4phc0ZbKHKsXl80O/mq4d7Ld2BgBxQB54yt+7mNAw4NICW+NCu8cI9WI+F04nSAHK+hOnhe76cm0wf6INTlwzZpEYLeR2mqiQbfB23k1Is0q55ti0tiQ5A8i16/c8ZXB2Cjj0YWH84LR7Kx16fNcb3Ik8LVr1gzRZZ6QGE5QPJI9QOd7lypJ/CvFVCLPfgaCmi0hkNC3vdzRwSy8hv2A==",
+        "SigningCertUrl": "https://sns.ap-southeast-2.amazonaws.com/SimpleNotificationService-ac565b8b1a6c5d002d285f9598aa1d9b.pem",
+        "UnsubscribeUrl": "https://sns.ap-southeast-2.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:ap-southeast-2:882607831196:sssalim-test-topic:e74edaf7-ee91-4065-86d4-e0c5c08c1a6e",
+        "MessageAttributes": {}
+      }
+    }
+  ]
+}
+
+
+{
+  "Records": [
+    {
+      "EventSource": "aws:sns",
+      "EventVersion": "1.0",
+      "EventSubscriptionArn": "arn:aws:sns:ap-southeast-2:882607831196:sssalim-test-topic:e74edaf7-ee91-4065-86d4-e0c5c08c1a6e",
+      "Sns": {
+        "Type": "Notification",
+        "MessageId": "f8fad8d4-9199-566b-a864-8b1c5ef03ecc",
+        "TopicArn": "arn:aws:sns:ap-southeast-2:882607831196:sssalim-test-topic",
+        "Subject": null,
+        "Message": "{\"DeepLens\":{\"Url\":\"https://s3-ap-southeast-2.amazonaws.com/sssalim-dummy-mug-face/sample_captured_scene.jpg\",\"ThingName\":\"deeplens_zz8BbGbNSVuHCsyqtWOM4Q\",\"Faces\":[{\"Url\":\"https://s3-ap-southeast-2.amazonaws.com/sssalim-dummy-mug-face/julian_bright_mug.jpeg\",\"Confidence\":99.99739837646484,\"RekognitionId\":\"871236b2-ee19-4801-a288-3484df39f68a\",\"Name\":\"Julian Bright\"}]}}",
+        "Timestamp": "2018-07-18T05:16:25.137Z",
+        "SignatureVersion": "1",
+        "Signature": "Fe1k2FzKzIaHYoiSfhTzB+YPTJLzso4omZUFNzMfuta/whirS9+sxGrSIUSzdmCcWUIHyOwHy7N4dmxaWHwkBtLzBtL/WRP2YRL+MTfnz4I8gvTNtDQn2qsEJPdr3+YdEJ4phc0ZbKHKsXl80O/mq4d7Ld2BgBxQB54yt+7mNAw4NICW+NCu8cI9WI+F04nSAHK+hOnhe76cm0wf6INTlwzZpEYLeR2mqiQbfB23k1Is0q55ti0tiQ5A8i16/c8ZXB2Cjj0YWH84LR7Kx16fNcb3Ik8LVr1gzRZZ6QGE5QPJI9QOd7lypJ/CvFVCLPfgaCmi0hkNC3vdzRwSy8hv2A==",
+        "SigningCertUrl": "https://sns.ap-southeast-2.amazonaws.com/SimpleNotificationService-ac565b8b1a6c5d002d285f9598aa1d9b.pem",
+        "UnsubscribeUrl": "https://sns.ap-southeast-2.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:ap-southeast-2:882607831196:sssalim-test-topic:e74edaf7-ee91-4065-86d4-e0c5c08c1a6e",
+        "MessageAttributes": {}
+      }
+    }
+  ]
+}
